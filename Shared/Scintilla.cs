@@ -202,6 +202,13 @@ namespace ScintillaNET
         /// <returns><c>true</c> if the lexer was successfully set, <c>false</c> otherwise.</returns>
         private bool SetLexerByName(string lexerName)
         {
+			// this special case is reserved to select the container to do the styling, in which case the container is sent a StyleNeeded notification each time text needs styling for display.
+            if (lexerName == String.Empty)
+            {
+                DirectMessage(NativeMethods.SCI_SETILEXER, IntPtr.Zero, IntPtr.Zero);
+                return true;
+            }
+
             var ptr = Lexilla.CreateLexer(lexerName);
 
             if (ptr == IntPtr.Zero)
@@ -4919,11 +4926,6 @@ namespace ScintillaNET
                 if (NativeMethods.NameConstantMap.ContainsKey(lexer))
                 {
                     lexerName = NativeMethods.NameConstantMap.First(f => f.Key == lexer).Value;
-
-                    if (string.IsNullOrEmpty(lexerName))
-                    {
-                        throw new InvalidOperationException(@"No lexer name was found with the specified value.");
-                    }
                 }
                 else
                 {
