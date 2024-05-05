@@ -3290,6 +3290,7 @@ namespace ScintillaNET
         /// Gets or sets the bi-directionality of the Scintilla control.
         /// </summary>
         /// <value>The bi-directionality of the Scintilla control.</value>
+        [DefaultValue(BiDirectionalDisplayType.Disabled)]
         [Category("Behaviour")]
         [Description("The bi-directionality of the Scintilla control.")]
         public BiDirectionalDisplayType BiDirectionality
@@ -3315,6 +3316,7 @@ namespace ScintillaNET
         /// Gets or sets a value indicating whether the reading layout is from right to left.
         /// </summary>
         /// <value><c>true</c> if reading layout is from right to left; otherwise, <c>false</c>.</value>
+        [DefaultValue(false)]
         [Category("Behaviour")]
         [Description("A value indicating whether the reading layout is from right to left.")]
         public bool UseRightToLeftReadingLayout
@@ -3650,9 +3652,9 @@ namespace ScintillaNET
         /// <summary>
         /// Gets or sets the maximum height of the autocompletion list measured in rows.
         /// </summary>
-        /// <returns>The max number of rows to display in an autocompletion window. The default is 5.</returns>
+        /// <returns>The max number of rows to display in an autocompletion window. The default is 9.</returns>
         /// <remarks>If there are more items in the list than max rows, a vertical scrollbar is shown.</remarks>
-        [DefaultValue(5)]
+        [DefaultValue(9)]
         [Category("Autocompletion")]
         [Description("The maximum number of rows to display in an autocompletion list.")]
         public int AutoCMaxHeight
@@ -4100,7 +4102,7 @@ namespace ScintillaNET
         /// <summary>
         /// Gets or sets whether the caret line is visible (highlighted).
         /// </summary>
-        /// <returns>true if the caret line is visible; otherwise, false. The default is false.</returns>
+        /// <returns>true if the caret line is visible; otherwise, false. The default is true.</returns>
         [DefaultValue(true)]
         [Category("Caret")]
         [Description("Determines whether to highlight the current caret line.")]
@@ -4436,8 +4438,8 @@ namespace ScintillaNET
         /// Gets or sets the background color to use when indicating long lines with
         /// <see cref="ScintillaNET.EdgeMode.Background" />.
         /// </summary>
-        /// <returns>The background Color. The default is Silver.</returns>
-        [DefaultValue(typeof(Color), "Silver")]
+        /// <returns>The background Color.</returns>
+        [DefaultValue(typeof(Color), "0, 192, 192, 192")]
         [Category("Long Lines")]
         [Description("The background color to use when indicating long lines.")]
         public Color EdgeColor
@@ -5388,9 +5390,8 @@ namespace ScintillaNET
         /// <summary>
         /// Gets or sets the range of the horizontal scroll bar.
         /// </summary>
-        /// <returns>The range in pixels of the horizontal scroll bar. The default is 2000.</returns>
+        /// <returns>The range in pixels of the horizontal scroll bar.</returns>
         /// <remarks>The width will automatically increase as needed when <see cref="ScrollWidthTracking" /> is enabled.</remarks>
-        [DefaultValue(2000)]
         [Category("Scrolling")]
         [Description("The range in pixels of the horizontal scroll bar.")]
         public int ScrollWidth
@@ -5614,7 +5615,7 @@ namespace ScintillaNET
         /// Gets or sets whether tab inserts a tab character, or indents.
         /// </summary>
         /// <returns>Whether tab inserts a tab character (false), or indents (true).</returns>
-        [DefaultValue(false)]
+        [DefaultValue(true)]
         [Category("Indentation")]
         [Description("Determines whether tab inserts a tab character, or indents.")]
         public bool TabIndents
@@ -6079,9 +6080,9 @@ namespace ScintillaNET
         /// </summary>
         /// <returns>
         /// One of the <see cref="ScintillaNET.WrapMode" /> enumeration values.
-        /// The default is <see cref="ScintillaNET.WrapMode.Word" />.
+        /// The default is <see cref="ScintillaNET.WrapMode.None" />.
         /// </returns>
-        [DefaultValue(WrapMode.Word)]
+        [DefaultValue(WrapMode.None)]
         [Category("Line Wrapping")]
         [Description("The line wrapping strategy.")]
         public WrapMode WrapMode
