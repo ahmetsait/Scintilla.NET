@@ -3274,11 +3274,11 @@ namespace ScintillaNET
         #region Properties
 
         /// <summary>
-        /// Gets or sets whether Scintilla's native drag & drop should be used instead of WinForms based one.
+        /// Gets or sets whether Scintilla's native drag &amp; drop should be used instead of WinForms based one.
         /// </summary>
-        /// <value><c>true</c> if Scintilla's native drag & drop should be used; otherwise, <c>false</c>. The default is false.</value>
+        /// <value><c>true</c> if Scintilla's native drag &amp; drop should be used; otherwise, <c>false</c>. The default is false.</value>
         [DefaultValue(false)]
-        [Category("Behaviour")]
+        [Category("Behavior")]
         [Description("Indicates whether Scintilla's native drag & drop should be used instead of WinForms based one.")]
         public bool _ScintillaManagedDragDrop { get; set; }
         // Underscore is used so that WinForms Designer sets it before any other
@@ -3291,7 +3291,7 @@ namespace ScintillaNET
         /// </summary>
         /// <value>The bi-directionality of the Scintilla control.</value>
         [DefaultValue(BiDirectionalDisplayType.Disabled)]
-        [Category("Behaviour")]
+        [Category("Behavior")]
         [Description("The bi-directionality of the Scintilla control.")]
         public BiDirectionalDisplayType BiDirectionality
         {
@@ -3317,7 +3317,7 @@ namespace ScintillaNET
         /// </summary>
         /// <value><c>true</c> if reading layout is from right to left; otherwise, <c>false</c>.</value>
         [DefaultValue(false)]
-        [Category("Behaviour")]
+        [Category("Behavior")]
         [Description("A value indicating whether the reading layout is from right to left.")]
         public bool UseRightToLeftReadingLayout
         {
