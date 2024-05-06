@@ -4,7 +4,7 @@
 		<TargetFrameworks>net462;net6.0-windows</TargetFrameworks>
 		<NeutralLanguage>en-US</NeutralLanguage>
 		<Description>Source Editing Component based on Scintilla 5 series.</Description>
-		<Copyright>Copyright (c) Jacob Slusser 2018, VPKSoft, cyber960 2022, desjarlais 2023.</Copyright>
+		<Copyright>Copyright (c) Jacob Slusser 2018, VPKSoft, cyber960 2022, desjarlais 2023, Ahmet Sait 2024.</Copyright>
 		<Version>5.5.0</Version>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<GenerateDocumentationFile>True</GenerateDocumentationFile>
@@ -19,18 +19,15 @@
 		<DefineConstants>SCINTILLA5</DefineConstants>
 	</PropertyGroup>
 	<PropertyGroup>
-		<PackageId>Scintilla5.NET</PackageId>
+		<PackageId>ahmetsait.Scintilla5.NET</PackageId>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
-		<PackageProjectUrl>https://github.com/desjarlais/Scintilla.NET</PackageProjectUrl>
-		<RepositoryUrl>https://github.com/desjarlais/Scintilla.NET</RepositoryUrl>
-		<PackageIcon>icon.png</PackageIcon>
 		<PackageTags>ScintillaNET Scintilla Editor</PackageTags>
-		<PackageReleaseNotes>Please visit https://github.com/desjarlais/Scintilla.NET/releases to view the release notes.</PackageReleaseNotes>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 		<PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
 		<RootNamespace>ScintillaNET</RootNamespace>
-		<Authors>Jacob Slusser, VPKSoft, cyber960, desjarlais</Authors>
+		<Authors>Jacob Slusser, VPKSoft, cyber960, desjarlais, Ahmet Sait</Authors>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageProjectUrl>https://github.com/ahmetsait/Scintilla.NET</PackageProjectUrl>
 	</PropertyGroup>
 	<ItemGroup>
 		<None Include="..\README.md">
@@ -39,7 +36,7 @@
 		</None>
 		<None Include="icon.png">
 			<Pack>True</Pack>
-			<PackagePath></PackagePath>
+			<PackagePath>\</PackagePath>
 		</None>
 	</ItemGroup>
 	<ItemGroup>
