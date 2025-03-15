@@ -44,7 +44,7 @@ public class LineCollection : IEnumerable<Line>
     /// <summary>
     /// Converts a BYTE offset to a CHARACTER offset.
     /// </summary>
-    internal int ByteToCharPosition(int pos)
+    public int ByteToCharPosition(int pos)
     {
         Debug.Assert(pos >= 0);
         Debug.Assert(pos <= this.scintilla.DirectMessage(NativeMethods.SCI_GETLENGTH).ToInt32());
@@ -59,7 +59,7 @@ public class LineCollection : IEnumerable<Line>
     /// <summary>
     /// Returns the number of CHARACTERS in a line.
     /// </summary>
-    internal int CharLineLength(int index)
+    public int CharLineLength(int index)
     {
         Debug.Assert(index >= 0);
         Debug.Assert(index < Count);
@@ -79,7 +79,7 @@ public class LineCollection : IEnumerable<Line>
     /// <summary>
     /// Returns the CHARACTER offset where the line begins.
     /// </summary>
-    internal int CharPositionFromLine(int index)
+    public int CharPositionFromLine(int index)
     {
         Debug.Assert(index >= 0);
         Debug.Assert(index < this.perLineData.Count); // Allow query of terminal line start
@@ -91,7 +91,7 @@ public class LineCollection : IEnumerable<Line>
         return start;
     }
 
-    internal CharToBytePositionInfo CharToBytePosition(int pos)
+    public CharToBytePositionInfo CharToBytePosition(int pos)
     {
         Debug.Assert(pos >= 0);
         Debug.Assert(pos <= TextLength);
@@ -201,7 +201,7 @@ public class LineCollection : IEnumerable<Line>
     /// <summary>
     /// Gets the number of CHARACTERS in a BYTE range.
     /// </summary>
-    private int GetCharCount(int pos, int length)
+    public int GetCharCount(int pos, int length)
     {
         // Encoding.GetCharCount() counts a cut-off multi-byte Utf-8 char as a � char, which causes issues so we use SCI_COUNTCODEUNITS.
         // Ideally Scintilla should never give us positions pointing to the middle of a code point.
@@ -211,7 +211,7 @@ public class LineCollection : IEnumerable<Line>
     /// <summary>
     /// Gets the number of CHARACTERS in a BYTE range.
     /// </summary>
-    private static unsafe int GetCharCount(IntPtr text, int length, Encoding encoding)
+    public static unsafe int GetCharCount(IntPtr text, int length, Encoding encoding)
     {
         if (text == IntPtr.Zero || length == 0)
             return 0;
@@ -257,7 +257,7 @@ public class LineCollection : IEnumerable<Line>
     /// <summary>
     /// Returns the line index containing the CHARACTER position.
     /// </summary>
-    internal int LineFromCharPosition(int pos)
+    public int LineFromCharPosition(int pos)
     {
         Debug.Assert(pos >= 0);
 
@@ -342,7 +342,7 @@ public class LineCollection : IEnumerable<Line>
         }
     }
 
-    internal void RebuildLineData()
+    public void RebuildLineData()
     {
         this.stepLine = 0;
         this.stepLength = 0;
@@ -475,7 +475,7 @@ public class LineCollection : IEnumerable<Line>
     /// <summary>
     /// Gets the number of CHARACTERS in the document.
     /// </summary>
-    internal int TextLength
+    public int TextLength
     {
         get
         {

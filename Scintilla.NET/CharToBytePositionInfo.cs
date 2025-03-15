@@ -2,7 +2,7 @@
 
 namespace ScintillaNET;
 
-internal readonly struct CharToBytePositionInfo(int bytePosition, int charPosition, bool lowSurrogate, int nextCodePointBytePosition) : IEquatable<CharToBytePositionInfo>
+public readonly struct CharToBytePositionInfo(int bytePosition, int charPosition, bool lowSurrogate, int nextCodePointBytePosition) : IEquatable<CharToBytePositionInfo>
 {
     public readonly int BytePosition = bytePosition;
     public readonly int CharPosition = charPosition;
