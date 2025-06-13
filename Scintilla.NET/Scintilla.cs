@@ -14,6 +14,14 @@ using System.Windows.Forms.VisualStyles;
 
 namespace ScintillaNET
 {
+    internal struct SatelliteLibraryInfo
+    {
+        public string ScintillaDllPath { get; set; }
+        public string LexillaDllPath { get; set; }
+        public FileVersionInfo ScintillaVersion { get; set; }
+        public FileVersionInfo LexillaVersion { get; set; }
+    }
+
     /// <summary>
     /// Represents a Scintilla editor control.
     /// </summary>
@@ -21,24 +29,23 @@ namespace ScintillaNET
     [Designer(typeof(ScintillaDesigner))]
     public class Scintilla : Control
     {
-        static Scintilla()
+        private static SatelliteLibraryInfo GetSatelliteLibraries(string nativeSubFolder)
         {
+            SatelliteLibraryInfo result = new();
             List<string> searchedPathList = [];
-            foreach (string path in EnumerateSatelliteLibrarySearchPaths())
+            foreach (string path in EnumerateSatelliteLibrarySearchPaths(nativeSubFolder))
             {
                 string scintillaDllPath = Path.Combine(path, "Scintilla.dll");
                 string lexillaDllPath = Path.Combine(path, "Lexilla.dll");
                 if (File.Exists(scintillaDllPath) && File.Exists(lexillaDllPath))
                 {
-                    modulePathScintilla = scintillaDllPath;
-                    modulePathLexilla = lexillaDllPath;
+                    result.ScintillaDllPath = scintillaDllPath;
+                    result.LexillaDllPath = lexillaDllPath;
                     try
                     {
-                        var info = FileVersionInfo.GetVersionInfo(modulePathScintilla);
-                        scintillaVersion = info.ProductVersion ?? info.FileVersion;
-                        info = FileVersionInfo.GetVersionInfo(modulePathLexilla);
-                        lexillaVersion = info.ProductVersion ?? info.FileVersion;
-                        return;
+                        result.ScintillaVersion = FileVersionInfo.GetVersionInfo(result.ScintillaDllPath);
+                        result.LexillaVersion = FileVersionInfo.GetVersionInfo(result.LexillaDllPath);
+                        return result;
                     }
                     catch
                     {
@@ -53,8 +60,6 @@ namespace ScintillaNET
 
             string searchedPaths = string.Join("\n", searchedPathList);
 
-            scintillaVersion = "ERROR";
-            lexillaVersion = "ERROR";
             // the path to the following .NET or .NET Framework satellite assemblies exists but the assemblies are not found in the directory.
             // (surely a problem in the package itself or in its installation of the project).
             throw new InvalidOperationException($"Scintilla.NET satellite assemblies not found in any of the following paths:\n{searchedPaths}");
@@ -70,12 +75,16 @@ namespace ScintillaNET
                 "blend";
         }
 
-        /// <summary>
-        /// Enumerates a list of folder paths that the native satellite libraries
-        /// ('Scintilla.dll' &amp; 'Lexilla.dll') are searched in.
-        /// </summary>
-        public static IEnumerable<string> EnumerateSatelliteLibrarySearchPaths()
+        private static IEnumerable<string> EnumerateSatelliteLibrarySearchPaths(string nativeSubFolder)
         {
+            if (Path.IsPathRooted(nativeSubFolder))
+            {
+                // Absolute paths override the whole path when combined with
+                // Path.Combine() anyway, so avoid yielding the same path.
+                yield return nativeSubFolder;
+                yield break;
+            }
+
             // 1. User configured (must be set before first Scintilla usage)
             if (!string.IsNullOrWhiteSpace(ScintillaNativeLibrary.SatelliteDirectory))
             {
@@ -143,20 +152,31 @@ namespace ScintillaNET
             }
         }
 
+        private static Dictionary<string, string> platformVariablesCache;
+        private static Dictionary<string, string> GetPlatformVariables()
+        {
+            platformVariablesCache ??= new() {
+                ["os"] = "win",
+                ["arch"] = Helpers.GetArchitectureRid(WinApiHelpers.GetProcessArchitecture()),
+            };
+            return platformVariablesCache;
+        }
+
         #region Fields
 
         // WM_DESTROY workaround
         private static bool? reparentAll;
         private bool reparent;
 
-        // Static module data
-        private static readonly string modulePathScintilla;
-        private static readonly string modulePathLexilla;
+        private string modulePathScintilla;
+        private string scintillaVersion;
+        private IntPtr moduleHandle;
+        private NativeMethods.Scintilla_DirectFunction directFunction;
 
-        private static IntPtr moduleHandle;
-        private static NativeMethods.Scintilla_DirectFunction directFunction;
-        private static IntPtr lexillaHandle;
-        private static Lexilla lexilla;
+        private string modulePathLexilla;
+        private string lexillaVersion;
+        private IntPtr lexillaHandle;
+        private Lexilla lexilla;
 
         // Events
         private static readonly object scNotificationEventKey = new();
@@ -991,14 +1011,7 @@ namespace ScintillaNET
                 throw new ObjectDisposedException(!string.IsNullOrEmpty(Name) ? Name : nameof(Scintilla));
 
             // If the control handle, ptr, direct function, etc... hasn't been created yet, it will be now.
-            return DirectMessage(SciPointer, msg, wParam, lParam);
-        }
-
-        private static IntPtr DirectMessage(IntPtr sciPtr, int msg, IntPtr wParam, IntPtr lParam)
-        {
-            // Like Win32 SendMessage but directly to Scintilla
-            IntPtr result = directFunction(sciPtr, msg, wParam, lParam);
-            return result;
+            return directFunction(SciPointer, msg, wParam, lParam);
         }
 
         /// <summary>
@@ -1230,9 +1243,6 @@ namespace ScintillaNET
             int pos = DirectMessage(NativeMethods.SCI_GETENDSTYLED).ToInt32();
             return Lines.ByteToCharPosition(pos);
         }
-
-        private static readonly string scintillaVersion;
-        private static readonly string lexillaVersion;
 
         /// <summary>
         /// Gets the product version of the Scintilla.dll user by the control.
@@ -3580,6 +3590,39 @@ namespace ScintillaNET
 
         #region Properties
 
+        #pragma warning disable IDE1006 // Naming Styles
+
+        private const string satelliteSearchTemplateDefault = @"runtimes\{os}-{arch}\native";
+
+        /// <summary>
+        /// Gets or sets satellite library (Scintilla &amp; Lexilla) search template. Following variables are provided to allow templating:<br/>
+        /// <c>{os}</c> is replaced with operating system: win, linux, osx, freebsd...<br/>
+        /// <c>{arch}</c> is replaced with CPU architecture: x86, x64, arm64...<br/>
+        /// Currently, Windows is the only supported OS.
+        /// </summary>
+        [DefaultValue(satelliteSearchTemplateDefault)]
+        [Category("Misc")]
+        [Description("Satellite library (Scintilla && Lexilla) search template. Following variables are provided to allow templating:\r\n{os} is replaced with operating system: win, linux, osx, freebsd...\r\n{arch} is replaced with CPU architecture: x86, x64, arm64...\r\nCurrently, Windows is the only supported OS.")]
+        public string _SatelliteSearchTemplate { get; set; } = satelliteSearchTemplateDefault;
+        // Underscore is used so that WinForms Designer sets it before any other
+        // property. Otherwise ApplyResources gets called on the control before
+        // the property is set, which then triggers OnHandleCreated before we
+        // have the final value.
+
+        /// <summary>
+        /// Gets computed satellite library (Scintilla &amp; Lexilla) search path.
+        /// </summary>
+        public string SatelliteSearchPath
+        {
+            get => TemplateEngine.Render(
+                string.IsNullOrEmpty(_SatelliteSearchTemplate) ?
+                    satelliteSearchTemplateDefault :
+                    _SatelliteSearchTemplate,
+                GetPlatformVariables(),
+                expandTilde: true
+            );
+        }
+
         /// <summary>
         /// Gets or sets whether Scintilla's native drag &amp; drop should be used instead of WinForms based one.
         /// </summary>
@@ -3592,6 +3635,8 @@ namespace ScintillaNET
         // property. Otherwise ApplyResources gets called on the control before
         // the property is set, which then triggers OnHandleCreated before we
         // have the final value.
+
+        #pragma warning restore IDE1006 // Naming Styles
 
         /// <summary>
         /// Gets or sets the bi-directionality of the Scintilla control.
@@ -4658,25 +4703,48 @@ namespace ScintillaNET
             {
                 if (moduleHandle == IntPtr.Zero)
                 {
+                    SatelliteLibraryInfo satellite = new();
+
                     // Try to get existing Scintilla library
                     if (NativeMethods.GetModuleHandleEx(0, "Scintilla.dll", out moduleHandle) == 0)
+                    {
+                        if (string.IsNullOrWhiteSpace(satellite.ScintillaDllPath))
+                            satellite = GetSatelliteLibraries(SatelliteSearchPath);
+
                         // Load if not already
-                        moduleHandle = NativeMethods.LoadLibrary(modulePathScintilla);
+                        moduleHandle = NativeMethods.LoadLibrary(satellite.ScintillaDllPath);
+                        scintillaVersion = satellite.ScintillaVersion.ProductVersion ?? satellite.ScintillaVersion.FileVersion;
+                    }
 
                     if (moduleHandle == IntPtr.Zero)
                     {
+                        scintillaVersion = "ERROR";
+                        lexillaVersion = "ERROR";
                         string message = string.Format(CultureInfo.InvariantCulture, "Could not load the Scintilla module at the path '{0}'.", modulePathScintilla);
                         throw new Win32Exception(message, new Win32Exception()); // Calls GetLastError
                     }
 
+                    modulePathScintilla = satellite.ScintillaDllPath;
+
+                    // Try to get existing Lexilla library
                     if (NativeMethods.GetModuleHandleEx(0, "Lexilla.dll", out lexillaHandle) == 0)
-                        lexillaHandle = NativeMethods.LoadLibrary(modulePathLexilla);
+                    {
+                        if (string.IsNullOrWhiteSpace(satellite.LexillaDllPath))
+                            satellite = GetSatelliteLibraries(SatelliteSearchPath);
+
+                        // Load if not already
+                        lexillaHandle = NativeMethods.LoadLibrary(satellite.LexillaDllPath);
+                        lexillaVersion = satellite.LexillaVersion.ProductVersion ?? satellite.LexillaVersion.FileVersion;
+                    }
 
                     if (lexillaHandle == IntPtr.Zero)
                     {
+                        lexillaVersion = "ERROR";
                         string message = string.Format(CultureInfo.InvariantCulture, "Could not load the Lexilla module at the path '{0}'.", modulePathLexilla);
                         throw new Win32Exception(message, new Win32Exception()); // Calls GetLastError
                     }
+
+                    modulePathLexilla = satellite.LexillaDllPath;
 
                     // Native DLL:
                     string exportName = nameof(NativeMethods.Scintilla_DirectFunction);
@@ -4693,9 +4761,7 @@ namespace ScintillaNET
                     lexilla = new Lexilla(lexillaHandle);
 
                     // Create a managed callback
-                    directFunction = (NativeMethods.Scintilla_DirectFunction)Marshal.GetDelegateForFunctionPointer(
-                        directFunctionPointer,
-                        typeof(NativeMethods.Scintilla_DirectFunction));
+                    directFunction = Marshal.GetDelegateForFunctionPointer<NativeMethods.Scintilla_DirectFunction>(directFunctionPointer);
                 }
 
                 CreateParams cp = base.CreateParams;
@@ -7667,7 +7733,7 @@ namespace ScintillaNET
         public Scintilla()
         {
             // WM_DESTROY workaround
-            if (Scintilla.reparentAll == null || (bool)Scintilla.reparentAll)
+            if (Scintilla.reparentAll ?? true)
                 this.reparent = true;
 
             // We don't want .NET to use GetWindowText because we manage ('cache') our own text

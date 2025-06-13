@@ -1293,6 +1293,16 @@ internal static class Helpers
         };
     }
 
+    //public static string NormalizePath(string path)
+    //{
+    //    string result = path;
+    //    result = result.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+    //    result = result.Replace('/', '\\');
+    //    while (result.Contains(@"\\"))
+    //        result = result.Replace(@"\\", @"\");
+    //    return result;
+    //}
+
     #endregion Methods
 
     #region Types
