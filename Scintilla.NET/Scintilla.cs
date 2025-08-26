@@ -5168,6 +5168,84 @@ namespace ScintillaNET
             }
         }
 
+        public SCROLLINFO HScrollInfo
+        {
+            get
+            {
+                SCROLLINFO scrollInfo = new SCROLLINFO();
+                scrollInfo.cbSize = (uint)Marshal.SizeOf(scrollInfo);
+                scrollInfo.fMask = SCROLLINFO_MASK.SIF_ALL;
+                PInvoke.GetScrollInfo((HWND)Handle, SCROLLBAR_CONSTANTS.SB_HORZ, ref scrollInfo);
+                return scrollInfo;
+            }
+        }
+
+        public SCROLLINFO VScrollInfo
+        {
+            get
+            {
+                SCROLLINFO scrollInfo = new SCROLLINFO();
+                scrollInfo.cbSize = (uint)Marshal.SizeOf(scrollInfo);
+                scrollInfo.fMask = SCROLLINFO_MASK.SIF_ALL;
+                PInvoke.GetScrollInfo((HWND)Handle, SCROLLBAR_CONSTANTS.SB_VERT, ref scrollInfo);
+                return scrollInfo;
+            }
+        }
+
+        /// <summary>
+        /// Gets whether the horizontal scroll position.
+        /// </summary>
+        [Browsable(false)]
+        [Category("Scrolling")]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public int HScrollPosition
+        {
+            get
+            {
+                SCROLLINFO scrollInfo = new SCROLLINFO();
+                scrollInfo.cbSize = (uint)Marshal.SizeOf(scrollInfo);
+                scrollInfo.fMask = SCROLLINFO_MASK.SIF_TRACKPOS;
+                PInvoke.GetScrollInfo((HWND)Handle, SCROLLBAR_CONSTANTS.SB_HORZ, ref scrollInfo);
+                return scrollInfo.nTrackPos;
+            }
+        }
+
+        /// <summary>
+        /// Gets whether the horizontal scroll position.
+        /// </summary>
+        [Browsable(false)]
+        [Category("Scrolling")]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public int HScrollMin
+        {
+            get
+            {
+                SCROLLINFO scrollInfo = new SCROLLINFO();
+                scrollInfo.cbSize = (uint)Marshal.SizeOf(scrollInfo);
+                scrollInfo.fMask = SCROLLINFO_MASK.SIF_RANGE;
+                PInvoke.GetScrollInfo((HWND)Handle, SCROLLBAR_CONSTANTS.SB_HORZ, ref scrollInfo);
+                return scrollInfo.nMin;
+            }
+        }
+
+        /// <summary>
+        /// Gets whether the horizontal scroll reached end.
+        /// </summary>
+        [Browsable(false)]
+        [Category("Scrolling")]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public bool HScrollReachedEnd
+        {
+            get
+            {
+                SCROLLINFO scrollInfo = new SCROLLINFO();
+                scrollInfo.cbSize = (uint)Marshal.SizeOf(scrollInfo);
+                scrollInfo.fMask = SCROLLINFO_MASK.SIF_RANGE | SCROLLINFO_MASK.SIF_PAGE | SCROLLINFO_MASK.SIF_TRACKPOS;
+                PInvoke.GetScrollInfo((HWND)Handle, SCROLLBAR_CONSTANTS.SB_HORZ, ref scrollInfo);
+                return scrollInfo.nTrackPos >= scrollInfo.nMax - (int)scrollInfo.nPage;
+            }
+        }
+
         /// <summary>
         /// Gets or sets the strategy used to perform styling using application idle time.
         /// </summary>
@@ -6690,6 +6768,24 @@ namespace ScintillaNET
             {
                 IntPtr visible = value ? new IntPtr(1) : IntPtr.Zero;
                 DirectMessage(NativeMethods.SCI_SETVSCROLLBAR, visible);
+            }
+        }
+
+        /// <summary>
+        /// Gets whether the vertical scroll reached bottom.
+        /// </summary>
+        [Browsable(false)]
+        [Category("Scrolling")]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public bool VScrollReachedBottom
+        {
+            get
+            {
+                SCROLLINFO scrollInfo = new SCROLLINFO();
+                scrollInfo.cbSize = (uint)Marshal.SizeOf(scrollInfo);
+                scrollInfo.fMask = SCROLLINFO_MASK.SIF_RANGE | SCROLLINFO_MASK.SIF_PAGE | SCROLLINFO_MASK.SIF_TRACKPOS;
+                PInvoke.GetScrollInfo((HWND)Handle, SCROLLBAR_CONSTANTS.SB_VERT, ref scrollInfo);
+                return scrollInfo.nTrackPos >= scrollInfo.nMax - (int)scrollInfo.nPage;
             }
         }
 

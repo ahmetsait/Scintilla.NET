@@ -4,9 +4,11 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Forms;
+using Windows.Win32.UI.WindowsAndMessaging;
 
 namespace ScintillaNET.TestApp;
 
@@ -116,6 +118,8 @@ public partial class FormMain : Form
         string original = "\n𠀀一丁";
         scintilla.Text = original;
 
+        scintilla.EmptyUndoBuffer();
+        scintilla.Text = File.ReadAllText("C:\\NX1337\\Projects\\Scintilla.NET\\Scintilla.NET.TestApp\\FormMain.cs");
         scintilla.Select();
     }
 
@@ -190,10 +194,10 @@ public partial class FormMain : Form
 
     private static readonly Dictionary<Scintilla, int> maxLineNumberCharLengthMap = [];
 
-    private static void AdjustLineNumberMargin(Scintilla scintilla)
+    private static void AdjustLineNumberMargin(Scintilla scintilla, bool force = false)
     {
         int maxLineNumberCharLength = CountDigits(scintilla.Lines.Count);
-        if (maxLineNumberCharLength == (maxLineNumberCharLengthMap.TryGetValue(scintilla, out int charLen) ? charLen : 0))
+        if (!force && maxLineNumberCharLength == (maxLineNumberCharLengthMap.TryGetValue(scintilla, out int charLen) ? charLen : 0))
             return;
 
         const int padding = 2;
@@ -299,188 +303,51 @@ public partial class FormMain : Form
     private void scintilla_TextChanged(object sender, EventArgs e)
     {
         AdjustLineNumberMargin(scintilla);
-        RefreshDebugText();
+        AppendScrollInfo();
+    }
+
+    SCROLLINFO lastV;
+    int lastY;
+    SCROLLINFO lastH;
+    int lastX;
+
+    private void AppendScrollInfo([CallerMemberName] string func = "")
+    {
+        StringBuilder sb = new StringBuilder();
+
+        SCROLLINFO vi = scintilla.VScrollInfo;
+        SCROLLINFO hi = scintilla.HScrollInfo;
+        if (!vi.Equals(lastV) || !hi.Equals(lastH) || scintilla.FirstVisibleLine != lastY || scintilla.XOffset != lastX)
+        {
+            if (!string.IsNullOrWhiteSpace(func))
+                sb.AppendLine(func);
+            sb.AppendFormat("    V: nMax: {0}  nPage: {1}  nPos: {2}  YOffset: {3}\n", vi.nMax, vi.nPage, vi.nPos, scintilla.FirstVisibleLine);
+            sb.AppendFormat("    H: nMax: {0}  nPage: {1}  nPos: {2}  XOffset: {3}\n", hi.nMax, hi.nPage, hi.nPos, scintilla.XOffset);
+            string str = sb.ToString();
+            scintillaDebug.AppendText(str);
+            scintillaDebug.ExecuteCmd(Command.ScrollToEnd);
+            lastV = vi;
+            lastH = hi;
+            lastY = scintilla.FirstVisibleLine;
+            lastX = scintilla.XOffset;
+        }
     }
 
     private void RefreshDebugText()
     {
         StringBuilder sb = new StringBuilder();
 
-        sb.AppendFormat("Raw Length: {0}\n", ScintillaByteLength(scintilla));
-        sb.AppendFormat("Text Length: {0}\n", scintilla.TextLength);
-        sb.AppendLine();
+        //sb.AppendLine("VScrollInfo: ");
+        //var vi = scintilla.VScrollInfo;
+        //sb.AppendFormat("nMin: {0}\nnMax: {1}\nnPage: {2}\nnPos: {3}\nnTrackPos: {4}\n\n", vi.nMin, vi.nMax, vi.nPage, vi.nPos, vi.nTrackPos);
 
-        sb.AppendLine("Raw UTF-8:");
-        sb.AppendLine(ToHex(RawText(scintilla)));
-        sb.AppendLine();
+        sb.AppendLine("HScrollInfo: ");
+        var hi = scintilla.HScrollInfo;
+        sb.AppendFormat("nMin: {0}\nnMax: {1}\nnPage: {2}\nnPos: {3}\nnTrackPos: {4}\n\n", hi.nMin, hi.nMax, hi.nPage, hi.nPos, hi.nTrackPos);
 
-        sb.AppendLine("Raw UTF-16:");
-        sb.AppendLine(ToHex(scintilla.Text));
-        sb.AppendLine();
-
-        sb.AppendFormat("Styled Needed: {0}-{1}\n", lastStyleNeededRange.start, lastStyleNeededRange.end);
-        sb.AppendFormat("Last SCI_GETENDSTYLED: {0}\n", lastEndStyled);
-        sb.AppendLine();
-
-        {
-            sb.AppendLine("GetCharAt:");
-            int len = scintilla.TextLength;
-            for (int i = 0; i < len + 2; i++)
-            {
-                char c = scintilla.GetCharAt(i);
-                sb.AppendFormat("{0}:({1}){2:x4} ", i, c, (uint)c);
-            }
-            sb.AppendLine();
-        }
-        sb.AppendLine();
-
-        {
-            sb.AppendLine("GetCodePointAt:");
-            int len = scintilla.TextLength;
-            for (int i = 0; i < len + 2; i++)
-            {
-                int c = scintilla.GetCodePointAt(i);
-                sb.AppendFormat("{0}:({1}){2:x8} ", i, char.ConvertFromUtf32(c), c);
-            }
-            sb.AppendLine();
-        }
-        sb.AppendLine();
-
-        sb.AppendLine("GetTextRange:");
-        sb.AppendLine(ToHex(scintilla.GetTextRange(0, scintilla.TextLength)));
-        sb.AppendLine(scintilla.GetTextRange(scintilla.SelectionStart, scintilla.SelectionEnd - scintilla.SelectionStart));
-        sb.AppendLine();
-
-        {
-            sb.AppendLine("Lines.LineFromCharPosition:");
-            int len = scintilla.TextLength;
-            for (int i = 0; i <= len; i++)
-            {
-                int bytePos = scintilla.Lines.LineFromCharPosition(i);
-                sb.AppendFormat("{0}:{1} ", i, bytePos);
-            }
-            sb.AppendLine();
-        }
-        sb.AppendLine();
-
-        {
-            sb.AppendLine("Lines.CharPositionFromLine:");
-            int len = scintilla.Lines.Count;
-            for (int i = 0; i <= len; i++)
-            {
-                int bytePos = scintilla.Lines.CharPositionFromLine(i);
-                sb.AppendFormat("{0}:{1} ", i, bytePos);
-            }
-            sb.AppendLine();
-        }
-        sb.AppendLine();
-
-        {
-            sb.AppendLine("Lines.CharToBytePosition:");
-            int len = scintilla.TextLength;
-            for (int i = 0; i <= len; i++)
-            {
-                var pos = scintilla.Lines.CharToBytePosition(i);
-                sb.AppendFormat("{0}:{1}{2} ", i, pos.BytePosition, pos.LowSurrogate ? "!" : "");
-            }
-            sb.AppendLine();
-        }
-        sb.AppendLine();
-
-        {
-            sb.AppendLine("Lines.ByteToCharPosition:");
-            int len = ScintillaByteLength(scintilla);
-            for (int i = 0; i <= len; i++)
-            {
-                int bytePos = scintilla.Lines.ByteToCharPosition(i);
-                sb.AppendFormat("{0}:{1} ", i, bytePos);
-            }
-            sb.AppendLine();
-        }
-        sb.AppendLine();
-
-        {
-            sb.AppendLine("Line Data Dump:");
-            sb.Append(scintilla.Lines.Dump());
-        }
-        sb.AppendLine();
-
-        {
-            const int SCI_POSITIONBEFORE = 2417;
-            const int SCI_POSITIONAFTER = 2418;
-            sb.AppendLine("Position After:");
-            int len = ScintillaByteLength(scintilla);
-            for (int i = 0; i < len + 2; i++)
-            {
-                int nextPosition = scintilla.DirectMessage(SCI_POSITIONAFTER, new IntPtr(i)).ToInt32();
-                sb.AppendFormat("{0}:{1} ", i, nextPosition);
-            }
-            sb.AppendLine();
-        }
-        sb.AppendLine();
-
-        {
-            int len = ScintillaByteLength(scintilla);
-            int count = scintilla.DirectMessage(NativeMethods.SCI_COUNTCHARACTERS, new IntPtr(0), new IntPtr(len)).ToInt32();
-            sb.AppendFormat("SCI_COUNTCHARACTERS: {0}\n", count.ToString());
-        }
-
-        {
-            int selStart = scintilla.DirectMessage(NativeMethods.SCI_GETSELECTIONSTART).ToInt32();
-            int selEnd = scintilla.DirectMessage(NativeMethods.SCI_GETSELECTIONEND).ToInt32();
-            int count = scintilla.DirectMessage(NativeMethods.SCI_COUNTCHARACTERS, new IntPtr(selStart), new IntPtr(selEnd)).ToInt32();
-            sb.AppendFormat("SCI_COUNTCHARACTERS (selection): {0}\n", count.ToString());
-        }
-
-        {
-            int len = ScintillaByteLength(scintilla);
-            int count = scintilla.DirectMessage(NativeMethods.SCI_COUNTCODEUNITS, new IntPtr(0), new IntPtr(len)).ToInt32();
-            sb.AppendFormat("SCI_COUNTCODEUNITS: {0}\n", count.ToString());
-        }
-
-        {
-            int selStart = scintilla.DirectMessage(NativeMethods.SCI_GETSELECTIONSTART).ToInt32();
-            int selEnd = scintilla.DirectMessage(NativeMethods.SCI_GETSELECTIONEND).ToInt32();
-            int count = scintilla.DirectMessage(NativeMethods.SCI_COUNTCODEUNITS, new IntPtr(selStart), new IntPtr(selEnd)).ToInt32();
-            sb.AppendFormat("SCI_COUNTCODEUNITS (selection): {0}\n", count.ToString());
-        }
-        sb.AppendLine();
-
-        {
-            sb.AppendLine("SCI_COUNTCODEUNITS:");
-            int len = ScintillaByteLength(scintilla);
-            for (int i = 0; i < len; i += 4)
-            {
-                int count = scintilla.DirectMessage(NativeMethods.SCI_COUNTCODEUNITS, new IntPtr(i), new IntPtr(i + 4)).ToInt32();
-                sb.AppendFormat("{0}-{1}:{2} ", i, i + 4, count);
-            }
-            sb.AppendLine();
-        }
-        sb.AppendLine();
-
-        {
-            sb.AppendLine("Relative Positions:");
-            int len = ScintillaByteLength(scintilla);
-            for (int i = 0; i < len + 2; i++)
-            {
-                int nextPosition = scintilla.DirectMessage(NativeMethods.SCI_POSITIONRELATIVE, new IntPtr(i), new IntPtr(1)).ToInt32();
-                sb.AppendFormat("{0}:{1} ", i, nextPosition);
-            }
-            sb.AppendLine();
-        }
-        sb.AppendLine();
-
-        {
-            sb.AppendLine("Relative Code Unit Positions:");
-            int len = ScintillaByteLength(scintilla);
-            for (int i = 0; i < len + 2; i++)
-            {
-                int nextPosition = scintilla.DirectMessage(NativeMethods.SCI_POSITIONRELATIVECODEUNITS, new IntPtr(i), new IntPtr(1)).ToInt32();
-                sb.AppendFormat("{0}:{1} ", i, nextPosition);
-            }
-            sb.AppendLine();
-        }
-        sb.AppendLine();
+        string res = sb.ToString();
+        if (scintillaDebug.Text != res)
+            Debugger.Break();
 
         int firstVisibleLine = scintillaDebug.FirstVisibleLine;
         scintillaDebug.Text = sb.ToString();
@@ -589,8 +456,7 @@ public partial class FormMain : Form
 
     private void scintilla_UpdateUI(object sender, UpdateUIEventArgs e)
     {
-        if (e.Change.HasFlag(UpdateChange.Selection))
-            RefreshDebugText();
+        AppendScrollInfo();
     }
 
     private (int start, int end) lastStyleNeededRange;
@@ -609,6 +475,33 @@ public partial class FormMain : Form
         scintilla.StartStyling(start);
         scintilla.SetStyling(end - start, 5);
 
-        RefreshDebugText();
+        AppendScrollInfo();
+    }
+
+    private void testToolStripMenuItem_Click(object sender, EventArgs e)
+    {
+        scintilla.ScrollWidth = 1;
+    }
+
+    private void scintilla_ZoomChanged(object sender, EventArgs e)
+    {
+        AdjustLineNumberMargin(scintilla, force: true);
+        AppendScrollInfo();
+    }
+
+    bool needRefresh = false;
+
+    private void scintilla_Painted(object sender, EventArgs e)
+    {
+        if (needRefresh)
+        {
+            AppendScrollInfo();
+            needRefresh = false;
+        }
+    }
+
+    private void scintilla_Resize(object sender, EventArgs e)
+    {
+        AppendScrollInfo();
     }
 }

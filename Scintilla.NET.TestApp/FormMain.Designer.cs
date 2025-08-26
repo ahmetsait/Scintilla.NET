@@ -47,6 +47,7 @@
             this.lexersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripTextBox_Find = new System.Windows.Forms.ToolStripTextBox();
             this.toolStripMenuItem_Find = new System.Windows.Forms.ToolStripMenuItem();
+            this.testToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.saveFileDialog = new System.Windows.Forms.SaveFileDialog();
             this.splitContainer = new System.Windows.Forms.SplitContainer();
             this.scintillaDebug = new ScintillaNET.Scintilla();
@@ -78,10 +79,13 @@
             this.scintilla.Size = new System.Drawing.Size(500, 423);
             this.scintilla.TabIndex = 2;
             this.scintilla.UseTabs = true;
-            this.scintilla.SavePointLeft += new System.EventHandler<System.EventArgs>(this.scintilla_SavePointLeft);
-            this.scintilla.SavePointReached += new System.EventHandler<System.EventArgs>(this.scintilla_SavePointReached);
+            this.scintilla.Painted += new System.EventHandler(this.scintilla_Painted);
+            this.scintilla.SavePointLeft += new System.EventHandler(this.scintilla_SavePointLeft);
+            this.scintilla.SavePointReached += new System.EventHandler(this.scintilla_SavePointReached);
             this.scintilla.UpdateUI += new System.EventHandler<ScintillaNET.UpdateUIEventArgs>(this.scintilla_UpdateUI);
+            this.scintilla.ZoomChanged += new System.EventHandler(this.scintilla_ZoomChanged);
             this.scintilla.TextChanged += new System.EventHandler(this.scintilla_TextChanged);
+            this.scintilla.Resize += new System.EventHandler(this.scintilla_Resize);
             // 
             // toolStripStatusLabel
             // 
@@ -190,7 +194,8 @@
             this.toolsToolStripMenuItem,
             this.helpToolStripMenuItem,
             this.toolStripTextBox_Find,
-            this.toolStripMenuItem_Find});
+            this.toolStripMenuItem_Find,
+            this.testToolStripMenuItem});
             this.menuStrip.Location = new System.Drawing.Point(0, 0);
             this.menuStrip.Name = "menuStrip";
             this.menuStrip.Size = new System.Drawing.Size(914, 31);
@@ -214,6 +219,13 @@
             this.toolStripMenuItem_Find.Size = new System.Drawing.Size(51, 27);
             this.toolStripMenuItem_Find.Text = "Find";
             this.toolStripMenuItem_Find.Click += new System.EventHandler(this.toolStripMenuItem_Find_Click);
+            // 
+            // testToolStripMenuItem
+            // 
+            this.testToolStripMenuItem.Name = "testToolStripMenuItem";
+            this.testToolStripMenuItem.Size = new System.Drawing.Size(49, 27);
+            this.testToolStripMenuItem.Text = "Test";
+            this.testToolStripMenuItem.Click += new System.EventHandler(this.testToolStripMenuItem_Click);
             // 
             // saveFileDialog
             // 
@@ -304,6 +316,7 @@
         private System.Windows.Forms.ToolStripMenuItem toolStripMenuItem_Find;
         private System.Windows.Forms.SplitContainer splitContainer;
         private Scintilla scintillaDebug;
+        private System.Windows.Forms.ToolStripMenuItem testToolStripMenuItem;
     }
 }
 

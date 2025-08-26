@@ -1,3 +1,5 @@
+LOWORD
+HIWORD
 CloseClipboard
 CombineRgn
 CreateRectRgn
@@ -19,3 +21,15 @@ WINDOW_STYLE
 RGN_COMBINE_MODE
 WINDOW_EX_STYLE
 HWND_*
+
+MODIFIERKEYS_FLAGS
+GetScrollInfo
+SetScrollInfo
+GetScrollBarInfo
+ScrollWindowEx
+EnableScrollBar
+ShowScrollBar
+SCROLLINFO
+SCROLLINFO_MASK
+SCROLLBAR_CONSTANTS
+SCROLLBARINFO
