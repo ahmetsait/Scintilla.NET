@@ -318,7 +318,7 @@ public partial class FormMain : Form
         sb.AppendLine(ToHex(scintilla.Text));
         sb.AppendLine();
 
-        sb.AppendFormat("Styled Needed: {0}-{1}\n", lastStyleNeededRange.start, lastStyleNeededRange.end);
+        sb.AppendFormat("Styled Needed: {0}-{1}\n", lastStyleNeededStart, lastStyleNeededEnd);
         sb.AppendFormat("Last SCI_GETENDSTYLED: {0}\n", lastEndStyled);
         sb.AppendLine();
 
@@ -593,7 +593,8 @@ public partial class FormMain : Form
             RefreshDebugText();
     }
 
-    private (int start, int end) lastStyleNeededRange;
+    private int lastStyleNeededStart;
+    private int lastStyleNeededEnd;
 
     private int lastEndStyled;
 
@@ -604,7 +605,8 @@ public partial class FormMain : Form
         int start = scintilla.GetEndStyled();
         int end = e.Position;
 
-        lastStyleNeededRange = (start, end);
+        lastStyleNeededStart = start;
+        lastStyleNeededEnd = end;
 
         scintilla.StartStyling(start);
         scintilla.SetStyling(end - start, 5);
