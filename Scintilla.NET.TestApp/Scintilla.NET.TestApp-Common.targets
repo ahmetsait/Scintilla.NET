@@ -15,6 +15,7 @@
     <Nullable>enable</Nullable>
     <Platforms>AnyCPU;x86;x64;ARM64</Platforms>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <ItemGroup>
     <Compile Update="FormMain.cs">

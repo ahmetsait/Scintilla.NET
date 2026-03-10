@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms.Design;
+#if NET
+using Microsoft.DotNet.DesignTools.Designers;
+#endif
 
 namespace ScintillaNET;
 
@@ -24,7 +24,7 @@ internal class ScintillaDesigner : ControlDesigner
         properties[nameof(Scintilla.ScrollWidthTracking)] = scrollWidthTracking;
 
         var scrollWidth = (PropertyDescriptor)properties[nameof(Scintilla.ScrollWidth)];
-        if ((bool)scrollWidthTracking.GetValue(Component))
+        if ((bool)scrollWidthTracking.GetValue(this.Component))
         {
             scrollWidth = TypeDescriptor.CreateProperty(
                 scrollWidth.ComponentType,

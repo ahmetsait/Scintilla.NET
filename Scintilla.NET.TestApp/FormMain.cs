@@ -20,7 +20,7 @@ public partial class FormMain : Form
         get => this.currentFileName;
         set
         {
-            BaseTitle = Path.GetFileName(this.currentFileName = value);
+            BaseTitle = Path.GetFileName(this.currentFileName = value) ?? "";
         }
     }
 
@@ -53,7 +53,7 @@ public partial class FormMain : Form
         AdjustFoldMargin(scintilla);
         InitSelectionHighlight(scintillaDebug, selectionHighlightIndicatorIndex);
 
-        Version scintillaNetVersion = scintilla.GetType().Assembly.GetName().Version;
+        Version scintillaNetVersion = scintilla.GetType().Assembly.GetName().Version!;
         string version = scintillaNetVersion.Revision == 0 ? scintillaNetVersion.ToString(3) : scintillaNetVersion.ToString();
         string scintillaVersion = scintilla.ScintillaVersion;
         string lexillaVersion = scintilla.LexillaVersion;
@@ -76,13 +76,15 @@ public partial class FormMain : Form
         }
     }
 
-    private void Lexer_Click(object sender, EventArgs e)
+    private void Lexer_Click(object? sender, EventArgs e)
     {
-        ToolStripItem item = (ToolStripItem)sender;
-        scintilla.LexerName = item.Text;
-        SetScintillaStyles(scintilla);
-        scintilla.Colorize(0, scintilla.TextLength);
-        AdjustFoldMargin(scintilla);
+        if (sender is ToolStripItem item)
+        {
+            scintilla.LexerName = item.Text;
+            SetScintillaStyles(scintilla);
+            scintilla.Colorize(0, scintilla.TextLength);
+            AdjustFoldMargin(scintilla);
+        }
     }
 
     private void FormMain_Shown(object sender, EventArgs e)
@@ -115,7 +117,10 @@ public partial class FormMain : Form
 
         string original = "\n𠀀一丁";
         scintilla.Text = original;
-
+        scintilla.AppendText("\n");
+        scintilla.AppendText(Scintilla.scintillaInfo?.Path);
+        scintilla.AppendText("\n");
+        scintilla.AppendText(Scintilla.lexillaInfo?.Path);
         scintilla.Select();
     }
 
@@ -406,7 +411,7 @@ public partial class FormMain : Form
         sb.AppendLine();
 
         {
-            const int SCI_POSITIONBEFORE = 2417;
+            //const int SCI_POSITIONBEFORE = 2417;
             const int SCI_POSITIONAFTER = 2418;
             sb.AppendLine("Position After:");
             int len = ScintillaByteLength(scintilla);
@@ -598,7 +603,7 @@ public partial class FormMain : Form
 
     private int lastEndStyled;
 
-    private void scintilla_StyleNeeded(object sender, StyleNeededEventArgs e)
+    private void scintilla_StyleNeeded(object? sender, StyleNeededEventArgs e)
     {
         lastEndStyled = scintilla.DirectMessage(NativeMethods.SCI_GETENDSTYLED).ToInt32();
 

@@ -11,6 +11,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <OutputPath>bin\$(Configuration)\</OutputPath>
     <Platforms>AnyCPU</Platforms>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <PropertyGroup>
     <LangVersion>12</LangVersion>
@@ -59,6 +60,10 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
+    <None Remove="App.config" />
+    <Content Include="App.config" Pack="true" PackagePath="lib\$(TargetFramework)" PackageCopyToOutput="true" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Microsoft.Windows.CsWin32" Version="0.3.183">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -67,6 +72,10 @@
   <ItemGroup Condition="'$(TargetFramework.TrimEnd(`0123456789`))' == 'net'">
     <Reference Include="System.Design" />
     <PackageReference Include="System.Memory" Version="4.6.3" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework.TrimEnd(`0123456789`))' != 'net'">
+    <PackageReference Include="Microsoft.WinForms.Designer.SDK" Version="1.6.0" />
+    <PackageReference Include="System.CodeDom" Version="4.6.0" Aliases="codedom" />
   </ItemGroup>
   <Target Name="PostPack" AfterTargets="Pack">
     <Exec Command="powershell .\nupkg.ps1 -MSBuildProjectDirectory '$(MSBuildProjectDirectory)' -NuGetPackageRoot '$(NuGetPackageRoot)' -NuGetPackageSourceDir '$(SolutionDir)\registry' -PackageOutputPath '$(PackageOutputPath)' -PackageId '$(PackageId)' -PackageVersion '$(PackageVersion)'" />

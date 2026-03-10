@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.ComponentModel.Design.Serialization;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Design;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -15,6 +17,9 @@ using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.Graphics.Gdi;
 using Windows.Win32.UI.WindowsAndMessaging;
+#if NET
+using CodeDomSerializer = Microsoft.DotNet.DesignTools.Serialization.CodeDomSerializer;
+#endif
 
 namespace ScintillaNET
 {
@@ -23,71 +28,49 @@ namespace ScintillaNET
     /// </summary>
     [Docking(DockingBehavior.Ask)]
     [Designer(typeof(ScintillaDesigner))]
+    [DesignerSerializer(typeof(ScintillaSerializer), typeof(CodeDomSerializer))]
     public class Scintilla : Control
     {
-        static Scintilla()
+        private const string ScintillaDll = "Scintilla.dll";
+        private const string LexillaDll = "Lexilla.dll";
+
+        private static ModuleInfo? FindValidModule(IEnumerable<string> paths, out IEnumerable<string> searchedPaths)
         {
             List<string> searchedPathList = [];
-            foreach (string path in EnumerateSatelliteLibrarySearchPaths())
+            searchedPaths = searchedPathList;
+
+            foreach (string path in paths)
             {
-                string scintillaDllPath = Path.Combine(path, "Scintilla.dll");
-                string lexillaDllPath = Path.Combine(path, "Lexilla.dll");
-                if (File.Exists(scintillaDllPath) && File.Exists(lexillaDllPath))
+                if (File.Exists(path))
                 {
-                    modulePathScintilla = scintillaDllPath;
-                    modulePathLexilla = lexillaDllPath;
                     try
                     {
-                        var info = FileVersionInfo.GetVersionInfo(modulePathScintilla);
-                        scintillaVersion = info.ProductVersion ?? info.FileVersion;
-                        info = FileVersionInfo.GetVersionInfo(modulePathLexilla);
-                        lexillaVersion = info.ProductVersion ?? info.FileVersion;
-                        return;
+                        var info = FileVersionInfo.GetVersionInfo(path);
+                        var version = info.ProductVersion ?? info.FileVersion;
+                        return new ModuleInfo(path, version);
                     }
-                    catch
-                    {
-                        searchedPathList.Add(path);
-                    }
+                    catch { }
                 }
-                else
-                {
-                    searchedPathList.Add(path);
-                }
+
+                searchedPathList.Add(path);
             }
 
-            string searchedPaths = string.Join("\n", searchedPathList);
-
-            scintillaVersion = "ERROR";
-            lexillaVersion = "ERROR";
-            // the path to the following .NET or .NET Framework satellite assemblies exists but the assemblies are not found in the directory.
-            // (surely a problem in the package itself or in its installation of the project).
-            throw new InvalidOperationException($"Scintilla.NET satellite assemblies not found in any of the following paths:\n{searchedPaths}");
+            return null;
         }
 
-        private static bool InDesignProcess()
+        private static IEnumerable<string> EnumerateSatelliteLibrarySearchPaths(string subPath)
         {
-            using var proc = Process.GetCurrentProcess();
-            string procName = proc.ProcessName;
-            return
-                procName is "devenv" or "DesignToolsServer" or // WinForms app in VS IDE
-                "xdesproc" or // WPF app in VS IDE/Blend
-                "blend";
-        }
+            if (Path.IsPathRooted(subPath))
+            {
+                yield return subPath;
+                yield break;
+            }
 
-        /// <summary>
-        /// Enumerates a list of folder paths that the native satellite libraries
-        /// ('Scintilla.dll' &amp; 'Lexilla.dll') are searched in.
-        /// </summary>
-        public static IEnumerable<string> EnumerateSatelliteLibrarySearchPaths()
-        {
-            // 1. User configured (must be set before first Scintilla usage)
+            // User configured (must be set before first Scintilla usage)
             if (!string.IsNullOrWhiteSpace(ScintillaNativeLibrary.SatelliteDirectory))
             {
                 yield return ScintillaNativeLibrary.SatelliteDirectory;
             }
-
-            // 2. check run-time paths
-            string nativeSubFolder = Path.Combine("runtimes", "win-" + Helpers.GetArchitectureRid(WinApiHelpers.GetProcessArchitecture()), "native");
 
             {
                 string location = Assembly.GetEntryAssembly()?.Location;
@@ -95,45 +78,27 @@ namespace ScintillaNET
                 {
                     string folder = Path.GetDirectoryName(location);
                     if (!string.IsNullOrWhiteSpace(folder))
-                        yield return Path.Combine(folder, nativeSubFolder);
+                        yield return Path.Combine(folder, subPath);
                 }
             }
-            Assembly assembly = Assembly.GetAssembly(typeof(Scintilla));
             {
-                string location = assembly?.Location;
+                string location = Assembly.GetAssembly(typeof(Scintilla))?.Location;
                 if (!string.IsNullOrWhiteSpace(location))
                 {
                     string folder = Path.GetDirectoryName(location);
                     if (!string.IsNullOrWhiteSpace(folder))
-                        yield return Path.Combine(folder, nativeSubFolder);
+                        yield return Path.Combine(folder, subPath);
                 }
             }
             {
                 string folder = AppDomain.CurrentDomain.BaseDirectory;
                 if (!string.IsNullOrWhiteSpace(folder))
                 {
-                    yield return Path.Combine(folder, nativeSubFolder);
+                    yield return Path.Combine(folder, subPath);
                 }
             }
 
-            // 3. check design-time paths
-            if (InDesignProcess())
-            {
-                // Look for the assemblies in the nuget global packages folder
-                string nugetScintillaPackageFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), @".nuget\packages\scintilla5.net");
-                Version packageVersion = assembly.GetName().Version;
-                string versionString = packageVersion.Revision == 0 ? packageVersion.ToString(3) : packageVersion.ToString();
-                yield return Path.Combine(nugetScintillaPackageFolder, versionString, nativeSubFolder);
-
-                // then check the project folder using the Scintilla.NET assembly location
-                // move up a few levels to the host project folder and append the location nuget used at install
-                string nugetScintillaNETLocation = assembly.Location;
-                string nugetScintillaPackageName = assembly.GetName().Name;
-                string rootProjectFolder = Path.GetFullPath(Path.Combine(nugetScintillaNETLocation, @"..\..\..\.."));
-                yield return Path.Combine(rootProjectFolder, "packages", nugetScintillaPackageName + "." + versionString, nativeSubFolder);
-            }
-
-            // 4. check environment variable custom paths
+            // Check environment variable custom paths
             string x86CustomPath = Environment.GetEnvironmentVariable("SCINTILLA_X86", EnvironmentVariableTarget.User);
             if (!string.IsNullOrWhiteSpace(x86CustomPath))
             {
@@ -147,6 +112,48 @@ namespace ScintillaNET
             }
         }
 
+        private static IEnumerable<string> EnumerateDesignSearchPaths(string dllName)
+        {
+            string nativeSubFolder = Path.Combine("runtimes", "win-" + Helpers.GetArchitectureRid(WinApiHelpers.GetProcessArchitecture()), "native");
+
+            Assembly assembly = Assembly.GetAssembly(typeof(Scintilla));
+
+            // Look for the assemblies in the nuget global packages folder
+            string nugetScintillaPackageFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), @".nuget\packages\scintilla5.net");
+            Version packageVersion = assembly.GetName().Version;
+            string versionString = packageVersion.Revision == 0 ? packageVersion.ToString(3) : packageVersion.ToString();
+            yield return Path.Combine(nugetScintillaPackageFolder, versionString, nativeSubFolder, dllName);
+
+            // then check the project folder using the Scintilla.NET assembly location
+            // move up a few levels to the host project folder and append the location nuget used at install
+            string nugetScintillaNETLocation = assembly.Location;
+            string nugetScintillaPackageName = assembly.GetName().Name;
+            string rootProjectFolder = Path.GetFullPath(Path.Combine(nugetScintillaNETLocation, @"..\..\..\.."));
+            yield return Path.Combine(rootProjectFolder, "packages", nugetScintillaPackageName + "." + versionString, nativeSubFolder, dllName);
+        }
+
+        private static bool? inDesignProcessCache;
+        private static bool InDesignProcess
+        {
+            get
+            {
+                if (inDesignProcessCache.HasValue)
+                {
+                    return inDesignProcessCache.Value;
+                }
+                else
+                {
+                    using var proc = Process.GetCurrentProcess();
+                    string procName = proc.ProcessName;
+                    return (inDesignProcessCache = 
+                        procName is "devenv" or "DesignToolsServer" or // WinForms app in VS IDE
+                        "xdesproc" or // WPF app in VS IDE
+                        "blend" // Blend for Visual Studio
+                        ).Value;
+                }
+            }
+        }
+
         #region Fields
 
         // WM_DESTROY workaround
@@ -154,8 +161,8 @@ namespace ScintillaNET
         private bool reparent;
 
         // Static module data
-        private static readonly string modulePathScintilla;
-        private static readonly string modulePathLexilla;
+        public static ModuleInfo? scintillaInfo;
+        public static ModuleInfo? lexillaInfo;
 
         private static FreeLibrarySafeHandle moduleHandle;
         private static NativeMethods.Scintilla_DirectFunction directFunction;
@@ -1235,18 +1242,15 @@ namespace ScintillaNET
             return Lines.ByteToCharPosition(pos);
         }
 
-        private static readonly string scintillaVersion;
-        private static readonly string lexillaVersion;
-
         /// <summary>
         /// Gets the product version of the Scintilla.dll user by the control.
         /// </summary>
-        public string ScintillaVersion => scintillaVersion;
+        public string ScintillaVersion => scintillaInfo?.Version;
 
         /// <summary>
         /// Gets the product version of the Lexilla.dll user by the control.
         /// </summary>
-        public string LexillaVersion => lexillaVersion;
+        public string LexillaVersion => lexillaInfo?.Version;
 
         /// <summary>
         /// Gets the Primary style associated with the given Secondary style.
@@ -1611,9 +1615,10 @@ namespace ScintillaNET
         /// <returns>An object representing the version information of the native Scintilla library.</returns>
         public FileVersionInfo GetVersionInfo()
         {
-            var version = FileVersionInfo.GetVersionInfo(modulePathScintilla);
+            if (!scintillaInfo.HasValue)
+                return null;
 
-            return version;
+            return FileVersionInfo.GetVersionInfo(scintillaInfo.Value.Path);
         }
 
         ///<summary>
@@ -2119,6 +2124,7 @@ namespace ScintillaNET
         /// <param name="e">An EventArgs that contains the event data.</param>
         protected override unsafe void OnHandleCreated(EventArgs e)
         {
+            Trace.WriteLine("OnHandleCreated");
             // Set more intelligent defaults...
             InitDocument();
             InitControlProps();
@@ -2131,7 +2137,7 @@ namespace ScintillaNET
             // ways to solve this, but my favorite is to revoke drag and drop from the
             // native Scintilla control before base.OnHandleCreated does the standard
             // processing of AllowDrop.
-            if (!_ScintillaManagedDragDrop)
+            if (this.DragDropMode == ScintillaDragDropMode.WinForms)
                 PInvoke.RevokeDragDrop((HWND)Handle);
 
             base.OnHandleCreated(e);
@@ -3583,22 +3589,158 @@ namespace ScintillaNET
             ChangeHistory = ChangeHistory.Disabled;
             ChangeHistory = ch;
         }
+
+        /// <summary>
+        /// Gets the `Scintilla.dll` path for the given <see cref="Architecture"/>.
+        /// </summary>
+        public string GetScintillaModulePath(Architecture arch)
+        {
+            return WinApiHelpers.GetProcessArchitecture() switch {
+                Architecture.X86 => ScintillaX86ModulePath,
+                Architecture.X64 => ScintillaX64ModulePath,
+                Architecture.Arm64 => ScintillaArm64ModulePath,
+                _ => null,
+            };
+        }
+
+        /// <summary>
+        /// Gets the `Lexilla.dll` path for the given <see cref="Architecture"/>.
+        /// </summary>
+        public string GetLexillaModulePath(Architecture arch)
+        {
+            return WinApiHelpers.GetProcessArchitecture() switch {
+                Architecture.X86 => LexillaX86ModulePath,
+                Architecture.X64 => LexillaX64ModulePath,
+                Architecture.Arm64 => LexillaArm64ModulePath,
+                _ => null,
+            };
+        }
+
         #endregion Methods
 
         #region Properties
 
+        public static string GlobalScintillaX86ModulePath = scintillaX86ModulePath;
+        public static string GlobalScintillaX64ModulePath = scintillaX64ModulePath;
+        public static string GlobalScintillaArm64ModulePath = scintillaArm64ModulePath;
+        public static string GlobalLexillaX86ModulePath = lexillaX86ModulePath;
+        public static string GlobalLexillaX64ModulePath = lexillaX64ModulePath;
+        public static string GlobalLexillaArm64ModulePath = lexillaArm64ModulePath;
+
         /// <summary>
-        /// Gets or sets whether Scintilla's native drag &amp; drop should be used instead of WinForms based one.
+        /// Gets or sets the path to x86 `Scintilla.dll`.
         /// </summary>
-        /// <value><c>true</c> if Scintilla's native drag &amp; drop should be used; otherwise, <c>false</c>. The default is false.</value>
-        [DefaultValue(false)]
+        [DefaultValue(scintillaX86ModulePath)]
+        [Category("Initialization")]
+        [Description("Path to x86 `Scintilla.dll`.")]
+        public string ScintillaX86ModulePath
+        {
+            get => GlobalScintillaX86ModulePath;
+            set => GlobalScintillaX86ModulePath = value;
+        }
+        private const string scintillaX86ModulePath = "runtimes/win-x86/native/" + ScintillaDll;
+
+        /// <summary>
+        /// Gets or sets the path to x64 `Scintilla.dll`.
+        /// </summary>
+        [DefaultValue(scintillaX64ModulePath)]
+        [Category("Initialization")]
+        [Description("Path to x64 `Scintilla.dll`.")]
+        public string ScintillaX64ModulePath
+        {
+            get => GlobalScintillaX64ModulePath;
+            set => GlobalScintillaX64ModulePath = value;
+        }
+        private const string scintillaX64ModulePath = "runtimes/win-x64/native/" + ScintillaDll;
+
+        /// <summary>
+        /// Gets or sets the path to ARM64 `Scintilla.dll`.
+        /// </summary>
+        [DefaultValue(scintillaArm64ModulePath)]
+        [Category("Initialization")]
+        [Description("Path to ARM64 `Scintilla.dll`.")]
+        public string ScintillaArm64ModulePath
+        {
+            get => GlobalScintillaArm64ModulePath;
+            set => GlobalScintillaArm64ModulePath = value;
+        }
+        private const string scintillaArm64ModulePath = "runtimes/win-arm64/native/" + ScintillaDll;
+
+        /// <summary>
+        /// Gets the `Scintilla.dll` path for the current architecture.
+        /// </summary>
+        [Category("Initialization")]
+        [Description("Path to `Scintilla.dll` for the current architecture.")]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public string ScintillaModulePath
+        {
+            get
+            {
+                return GetScintillaModulePath(WinApiHelpers.GetProcessArchitecture());
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the path to x86 `Lexilla.dll`.
+        /// </summary>
+        [DefaultValue(lexillaX86ModulePath)]
+        [Category("Initialization")]
+        [Description("Path to x86 `Lexilla.dll`.")]
+        public string LexillaX86ModulePath
+        {
+            get => GlobalLexillaX86ModulePath;
+            set => GlobalLexillaX86ModulePath = value;
+        }
+        private const string lexillaX86ModulePath = "runtimes/win-x86/native/" + LexillaDll;
+
+        /// <summary>
+        /// Gets or sets the path to x64 `Lexilla.dll`.
+        /// </summary>
+        [DefaultValue(lexillaX64ModulePath)]
+        [Category("Initialization")]
+        [Description("Path to x64 `Lexilla.dll`.")]
+        public string LexillaX64ModulePath
+        {
+            get => GlobalLexillaX64ModulePath;
+            set => GlobalLexillaX64ModulePath = value;
+        }
+        private const string lexillaX64ModulePath = "runtimes/win-x64/native/" + LexillaDll;
+
+        /// <summary>
+        /// Gets or sets the path to ARM64 `Lexilla.dll`.
+        /// </summary>
+        [DefaultValue(lexillaArm64ModulePath)]
+        [Category("Initialization")]
+        [Description("Path to ARM64 `Lexilla.dll`.")]
+        public string LexillaArm64ModulePath
+        {
+            get => GlobalLexillaArm64ModulePath;
+            set => GlobalLexillaArm64ModulePath = value;
+        }
+        private const string lexillaArm64ModulePath = "runtimes/win-arm64/native/" + LexillaDll;
+
+        /// <summary>
+        /// Gets the `Lexilla.dll` path for the current architecture.
+        /// </summary>
+        [Category("Initialization")]
+        [Description("Path to `Lexilla.dll` for the current architecture.")]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public string LexillaModulePath
+        {
+            get
+            {
+                return GetLexillaModulePath(WinApiHelpers.GetProcessArchitecture());
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets drag &amp; drop mode for Scintilla.
+        /// </summary>
+        [DefaultValue(default(ScintillaDragDropMode))]
         [Category("Behavior")]
-        [Description("Indicates whether Scintilla's native drag && drop should be used instead of WinForms based one.")]
-        public bool _ScintillaManagedDragDrop { get; set; }
-        // Underscore is used so that WinForms Designer sets it before any other
-        // property. Otherwise ApplyResources gets called on the control before
-        // the property is set, which then triggers OnHandleCreated before we
-        // have the final value.
+        [Description("Indicates drag && drop mode to use.")]
+        [CodeDomPriority(-100)]
+        public ScintillaDragDropMode DragDropMode { get; set; }
 
         /// <summary>
         /// Gets or sets the bi-directionality of the Scintilla control.
@@ -4663,32 +4805,47 @@ namespace ScintillaNET
         {
             get
             {
+                Trace.WriteLine("CreateParams");
                 if (moduleHandle == null || moduleHandle.IsInvalid)
                 {
                     // Try to get existing Scintilla library
-                    if (PInvoke.GetModuleHandleEx(0, "Scintilla.dll", out moduleHandle) == 0)
+                    if (PInvoke.GetModuleHandleEx(0, ScintillaDll, out moduleHandle) == 0)
+                    {
                         // Load if not already
-                        moduleHandle = PInvoke.LoadLibrary(modulePathScintilla);
+                        var sciPaths = EnumerateSatelliteLibrarySearchPaths(ScintillaModulePath);
+                        if (InDesignProcess)
+                            sciPaths = Enumerable.Concat(sciPaths, EnumerateDesignSearchPaths(ScintillaDll));
+
+                        scintillaInfo = FindValidModule(sciPaths, out var searchedPaths) ?? throw new InvalidOperationException($"{ScintillaDll} not found in any of the following paths:\n{string.Join("\n", searchedPaths)}");
+                        moduleHandle = PInvoke.LoadLibrary(scintillaInfo.Value.Path);
+                    }
 
                     if (moduleHandle == null || moduleHandle.IsInvalid)
                     {
-                        string message = string.Format(CultureInfo.InvariantCulture, "Could not load the Scintilla module at the path '{0}'.", modulePathScintilla);
+                        string message = string.Format(CultureInfo.InvariantCulture, "Could not load the Scintilla module at the path '{0}'.", scintillaInfo.Value.Path);
                         throw new Win32Exception(message, new Win32Exception()); // Calls GetLastError
                     }
 
-                    if (PInvoke.GetModuleHandleEx(0, "Lexilla.dll", out lexillaHandle) == 0)
-                        lexillaHandle = PInvoke.LoadLibrary(modulePathLexilla);
+                    // Try to get existing Lexilla library
+                    if (PInvoke.GetModuleHandleEx(0, LexillaDll, out lexillaHandle) == 0)
+                    {
+                        // Load if not already
+                        var lexPaths = EnumerateSatelliteLibrarySearchPaths(LexillaModulePath);
+                        if (InDesignProcess)
+                            lexPaths = Enumerable.Concat(lexPaths, EnumerateDesignSearchPaths(LexillaDll));
+
+                        lexillaInfo = FindValidModule(lexPaths, out var searchedPaths) ?? throw new InvalidOperationException($"{LexillaDll} not found in any of the following paths:\n{string.Join("\n", searchedPaths)}");
+                        lexillaHandle = PInvoke.LoadLibrary(lexillaInfo.Value.Path);
+                    }
 
                     if (lexillaHandle == null || lexillaHandle.IsInvalid)
                     {
-                        string message = string.Format(CultureInfo.InvariantCulture, "Could not load the Lexilla module at the path '{0}'.", modulePathLexilla);
+                        string message = string.Format(CultureInfo.InvariantCulture, "Could not load the Lexilla module at the path '{0}'.", lexillaInfo.Value.Path);
                         throw new Win32Exception(message, new Win32Exception()); // Calls GetLastError
                     }
 
-                    // Native DLL:
-                    string exportName = nameof(NativeMethods.Scintilla_DirectFunction);
-
                     // Get the native Scintilla direct function -- the only function the library exports
+                    string exportName = nameof(NativeMethods.Scintilla_DirectFunction);
                     FARPROC directFunctionPointer = PInvoke.GetProcAddress(moduleHandle, exportName);
                     if (directFunctionPointer == IntPtr.Zero)
                     {
@@ -7705,4 +7862,6 @@ namespace ScintillaNET
         [Obsolete("Not used by the Scintilla.NET control.")]
         public new RightToLeft RightToLeft { get; set; }
     }
+
+    public record struct ModuleInfo(string Path, string Version);
 }
